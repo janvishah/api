@@ -22,9 +22,12 @@ class HomeController extends Controller
     {
         $analytics = HomeController::initializeAnalytics();
         $profile = HomeController::getFirstProfileId($analytics);
-        $results = HomeController::getResults($analytics, $profile);
-        HomeController::printResults($results);
-    }   
+        
+        //get final result in $web_data
+        $web_data = HomeController::getResults($analytics, $profile);
+        
+        //return view('analytics',compact('web_data'));
+    } 
     function initializeAnalytics()
     {
         // Creates and returns the Analytics Reporting service object.
@@ -32,7 +35,7 @@ class HomeController extends Controller
         // Use the developers console and download your service account
         // credentials in JSON format. Place them in this directory or
         // change the key file location if necessary.
-        $KEY_FILE_LOCATION =  app_path('analytics/vardaampayroll1-credentials.json');
+        $KEY_FILE_LOCATION =  app_path('analytics/beacon-credentials.json');
     
         // Create and configure a new client object.
         $client = new Google_Client();
@@ -84,42 +87,48 @@ class HomeController extends Controller
     function getResults($analytics, $profileId) {
         // Calls the Core Reporting API and queries for the number of sessions
         // for the last seven days.
-        $from_date = date("Y-m-d", strtotime('06/06/2021'));
-        $to_date = date("Y-m-d",strtotime('06/07/2021')) ;
-        $res = $analytics->data_ga->get(
+        $from_date = date("Y-m-d", strtotime('7daysago'));
+        $to_date = date("Y-m-d",strtotime('today')) ;
+
+        $events = $analytics->data_ga->get(
             'ga:' . $profileId,
             $from_date,
             $to_date,
-            'ga:pageviews',
-            ['metrics' => 'ga:pageviews',
-            'dimensions' => 'ga:pagePath',
-            'filters' => 'ga:pagePath==/career']);
-            return $res;
-    }
-        
-    function printResults($results) {
-        
-        // Parses the response from the Core Reporting API and prints
-        // the profile name and total sessions.
-        if (count($results->getRows()) > 0) {
-    
-            // Get the profile name.
-            $profileName = $results->getProfileInfo()->getProfileName();
-        
-            // Get the entry for the first entry in the first row.
-            $rows = $results->getRows();
-            //$users = $rows[0][0];
-            //$sessions = $rows[0][1];
-            $pagename = $rows[0][0];
-            $pageviews = $rows[0][1];
-        
-            // Print the results.
-            print "First view (profile) found: $profileName\n";
-            //print "Total user: $users\n";
-            //print "Total session: $sessions\n";
-            print "Total pageviews of page: $pagename = $pageviews\n";
+            'ga:totalEvents',
+            ['metrics' => 'ga:totalEvents',
+            'dimensions' => 'ga:eventaction,ga:eventCategory,ga:pagePath,ga:pageTitle,ga:date,ga:dimension1',
+            'filters' => 'ga:pagePath%3D@silverpage-category,ga:pagePath%3D@silverpage']);  
+        if($events != null){
+            
+            if (count($events->getRows()) > 0) {
+                // Get the profile name.
+                //$profileName = $results[0]->getProfileInfo()->getProfileName();
+            
+                // Get the entry for the first entry in the first row.
+                $event = $events->getRows();
+                
+                //$event[0][0] = redirect url
+                //$event[0][1] = event category
+                //$event[0][2] = page path
+                //$event[0][3] = Advertise title
+                //$event[0][4] = Date
+                //$event[0][5] = IP
+                //$event[0][6] = no of event from that ip
+
+                $no_of_event = count($event);
+                for($i=0;$i<$no_of_event;$i++)
+                {
+                    $advertise = explode('|',$event[$i][3],2);
+                    $event[$i][3] =$advertise[0];
+                    $user_ip = explode(',',$event[$i][5],2);
+                    $event[$i][5] = $user_ip[0];
+                }           
+                return $event;
+            } else {
+                return $event = "No results found.\n";
+            }
         } else {
-            print "No results found.\n";
+            return $event = "No data found.\n";
         }
     }
    
